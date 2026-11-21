@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Admin · Geetha’s responses</title>
+<style>
+:root{--black:#0b0908;--gold:#e8b84a;--cream:#f7ead2;--edge:rgba(232,184,74,.45);box-sizing:border-box;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 0,#3b0f22,transparent 50%),var(--black);color:var(--cream);font:400 16px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif}
+main{width:min(720px,100%);margin:0 auto;padding:28px 16px 60px}
+h1{font:italic 800 clamp(1.8rem,7vw,2.6rem)/1.1 Georgia,serif;color:var(--gold);margin:0 0 6px}
+.box,.item{border:1px solid var(--edge);border-radius:22px;background:rgba(255,240,200,.07);padding:20px}
+input{display:block;width:100%;margin:10px 0 0;padding:14px 16px;border-radius:14px;border:1px solid var(--edge);background:rgba(11,9,8,.5);color:var(--cream);font:inherit}
+button{font:700 1rem system-ui,sans-serif;border:0;border-radius:999px;padding:12px 24px;margin:14px 8px 0 0;cursor:pointer;background:linear-gradient(135deg,#fff0b8,var(--gold));color:var(--black)}
+button.ghost{background:none;color:var(--cream);border:1px solid var(--edge)}
+:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.err{color:#ffb4a8;min-height:1.4em;margin:10px 0 0}
+.stats{display:flex;gap:12px;margin:18px 0}
+.stats div{flex:1;border:1px solid var(--edge);border-radius:18px;padding:14px;text-align:center}
+.stats b{display:block;font-size:1.8rem;color:var(--gold)}
+.item{margin-top:12px}
+.item .top{display:flex;justify-content:space-between;gap:10px;opacity:.8;font-size:.9rem}
+.item .em{font-size:1.8rem;line-height:1}
+.item p{margin:10px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.note{border-color:#ffb4a8}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>Geetha’s responses</h1>
+  <p style="margin:0;opacity:.75">Admin only.</p>
+
+  <form class="box" id="lf" style="margin-top:20px">
+    <input id="u" placeholder="Admin username" autocomplete="username" autocapitalize="none" spellcheck="false" required aria-label="Admin username">
+    <input id="p" type="password" placeholder="Password" autocomplete="current-password" required aria-label="Password">
+    <p class="err" id="le" role="alert"></p>
+    <button type="submit" id="lb">Log in</button>
+  </form>
+
+  <section id="dash" class="hidden">
+    <div class="stats"><div><b id="n">0</b>responses</div><div><b id="avg">–</b>avg. rating (of 5)</div></div>
+    <button class="ghost" id="re" style="margin-top:0">Refresh</button><button class="ghost" id="lo" style="margin-top:0">Log out</button>
+    <div class="box note hidden" id="nodb" style="margin-top:14px">Storage isn’t connected yet, so nothing is saved here. Add Upstash Redis in Vercel (Storage tab), connect it to this project, then redeploy. Responses sent in the meantime are still in Vercel → Logs.</div>
+    <p id="empty" class="hidden" style="opacity:.75;margin-top:18px">No responses yet. They show up here once Geetha sends her comment.</p>
+    <div id="list"></div>
+  </section>
+</main>
+<script>
+const $=id=>document.getElementById(id),E=['','😐','🙂','😍','🥹','🤩'];
+let tok='';
+$('lf').onsubmit=async e=>{e.preventDefault();$('le').textContent='';$('lb').disabled=true;
+  try{const r=await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('u').value.trim(),password:$('p').value})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok&&j.token){tok=j.token;$('lf').classList.add('hidden');$('dash').classList.remove('hidden');load()}
+    else $('le').textContent=j.error||'Login failed.';
+  }catch(_){$('le').textContent='Can’t reach the server. Try again.'}
+  $('lb').disabled=false};
+async function load(){
+  try{const r=await fetch('/api/admin',{headers:{Authorization:'Bearer '+tok}});const j=await r.json();
+    if(r.status===401){logout();return}
+    if(!r.ok)throw 0;
+    $('nodb').classList.toggle('hidden',j.configured);
+    const it=j.items,rated=it.filter(x=>x.rating);
+    $('n').textContent=it.length;
+    $('avg').textContent=rated.length?(rated.reduce((a,x)=>a+x.rating,0)/rated.length).toFixed(1):'–';
+    $('empty').classList.toggle('hidden',it.length>0||!j.configured);
+    const L=$('list');L.textContent='';
+    it.forEach(x=>{const d=document.createElement('div');d.className='item';
+      const t=document.createElement('div');t.className='top';
+      const em=document.createElement('span');em.className='em';em.textContent=x.rating?E[x.rating]+' '+x.rating+'/5':'No rating';
+      const at=document.createElement('span');at.textContent=new Date(x.at).toLocaleString();
+      t.append(em,at);d.appendChild(t);
+      if(x.comment){const p=document.createElement('p');p.textContent=x.comment;d.appendChild(p)}
+      L.appendChild(d)});
+  }catch(_){$('empty').classList.remove('hidden');$('empty').textContent='Couldn’t load responses. Tap Refresh to try again.'}
+}
+function logout(){tok='';$('p').value='';$('dash').classList.add('hidden');$('lf').classList.remove('hidden')}
+$('re').onclick=load;$('lo').onclick=logout;
+</script>
+</body>
+</html>
